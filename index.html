@@ -561,68 +561,143 @@ async function callBytez(prompt, key, modelId) {
 }
 
 async function callGemini(prompt, key) {
-  // Using Gemini 2.5 Flash - latest free tier model with best Kannada support
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.9,
-        maxOutputTokens: 800  // Increased from 500 to prevent cutoff
-      }
-    })
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || 'Gemini error');
+  // Try multiple Gemini models in order of preference
+  const models = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-3-flash',
+    'gemma-3-12b-it'
+  ];
   
-  let poem = data.candidates[0].content.parts[0].text.trim();
+  let lastError = null;
   
-  // Check if poem was cut off (doesn't end with proper punctuation)
-  const endsWithPunctuation = /[。，!?.;:\n]$/.test(poem);
-  if (!endsWithPunctuation && poem.length > 50) {
-    console.warn('Poem may be cut off, attempting to complete...');
-    // Try to get completion
+  for (const model of models) {
     try {
-      const completionRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+      setStatus(`Trying ${model}...`, 'loading');
+      
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          contents: [{ parts: [{ text: `Continue this Kannada poem from where it left off (add 1-2 more lines to complete it, maintain the same style and emotion):\n\n${poem}\n\nContinue:` }] }],
+          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
             topP: 0.9,
-            maxOutputTokens: 200
+            maxOutputTokens: 800
           }
         })
       });
-      const completionData = await completionRes.json();
-      if (completionData.candidates?.[0]?.content?.parts?.[0]?.text) {
-        const completion = completionData.candidates[0].content.parts[0].text.trim();
-        poem = poem + completion;
+      const data = await res.json();
+      
+      if (!res.ok) {
+        const errorMsg = data.error?.message || '';
+        // Check if it's a rate limit or high demand error
+        if (errorMsg.includes('high demand') || errorMsg.includes('quota') || errorMsg.includes('rate limit') || res.status === 429 || res.status === 503) {
+          lastError = new Error(errorMsg);
+          console.warn(`Model ${model} unavailable:`, errorMsg);
+          continue; // Try next model
+        }
+        throw new Error(errorMsg);
       }
+      
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Empty response from Gemini');
+      }
+      
+      let poem = data.candidates[0].content.parts[0].text.trim();
+      
+      // Check if poem was cut off
+      const endsWithPunctuation = /[。，!?.;:\n]$/.test(poem);
+      if (!endsWithPunctuation && poem.length > 50) {
+        console.warn('Poem may be cut off, attempting to complete...');
+        try {
+          const completionRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              contents: [{ parts: [{ text: `Continue this Kannada poem from where it left off (add 1-2 more lines to complete it, maintain the same style and emotion):\n\n${poem}\n\nContinue:` }] }],
+              generationConfig: {
+                temperature: 0.7,
+                topP: 0.9,
+                maxOutputTokens: 200
+              }
+            })
+          });
+          const completionData = await completionRes.json();
+          if (completionData.candidates?.[0]?.content?.parts?.[0]?.text) {
+            const completion = completionData.candidates[0].content.parts[0].text.trim();
+            poem = poem + completion;
+          }
+        } catch (e) {
+          console.warn('Failed to complete poem:', e);
+        }
+      }
+      
+      setStatus(`Generated with ${model} ✓`, 'success');
+      return poem;
     } catch (e) {
-      console.warn('Failed to complete poem:', e);
+      lastError = e;
+      console.warn(`Model ${model} failed:`, e.message);
+      continue;
     }
   }
   
-  return poem;
+  // All Gemini models failed
+  throw lastError || new Error('All Gemini models unavailable');
 }
 
 async function callOpenRouter(prompt, key) {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({
-      model: 'mistralai/mistral-7b-instruct:free',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 400
-    })
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || 'OpenRouter error');
-  return data.choices[0].message.content.trim();
+  // Try multiple free models in order of preference for Kannada
+  const models = [
+    'google/gemma-3-12b-it:free',
+    'qwen/qwen3-4b:free',
+    'mistralai/mistral-small-3.1-24b-instruct:free',
+    'google/gemma-3n-e4b-it:free'
+  ];
+  
+  let lastError = null;
+  
+  for (const model of models) {
+    try {
+      setStatus(`Trying OpenRouter: ${model.split('/')[1]}...`, 'loading');
+      
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 600
+        })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        const errorMsg = data.error?.message || '';
+        // Check if it's a rate limit or demand error
+        if (errorMsg.includes('high demand') || errorMsg.includes('rate limit') || errorMsg.includes('quota') || res.status === 429 || res.status === 503) {
+          lastError = new Error(errorMsg);
+          console.warn(`Model ${model} unavailable:`, errorMsg);
+          continue; // Try next model
+        }
+        throw new Error(errorMsg);
+      }
+      
+      if (!data.choices?.[0]?.message?.content) {
+        throw new Error('Empty response from OpenRouter');
+      }
+      
+      setStatus(`Generated with ${model.split('/')[1]} ✓`, 'success');
+      return data.choices[0].message.content.trim();
+    } catch (e) {
+      lastError = e;
+      console.warn(`Model ${model} failed:`, e.message);
+      continue;
+    }
+  }
+  
+  // All OpenRouter models failed
+  throw lastError || new Error('All OpenRouter models unavailable');
 }
 
 function buildPrompt(emotion, mood, style) {
@@ -854,9 +929,13 @@ async function generate() {
 
   try {
     let poem = '';
-    if (provider === 'bytez') poem = await callBytez(prompt, key, document.getElementById('bytezModel').value.trim());
-    else if (provider === 'gemini') poem = await callGemini(prompt, key);
-    else poem = await callOpenRouter(prompt, key);
+    if (provider === 'bytez') {
+      poem = await callBytez(prompt, key, document.getElementById('bytezModel').value.trim());
+    } else if (provider === 'gemini') {
+      poem = await callGemini(prompt, key);
+    } else {
+      poem = await callOpenRouter(prompt, key);
+    }
 
     currentPoem = poem;
     document.getElementById('poemRaw').textContent = poem;
@@ -869,7 +948,6 @@ async function generate() {
 
     document.getElementById('outputPanel').classList.add('visible');
     drawBackground();
-    setStatus('Poem generated ✓', 'success');
   } catch (e) {
     setStatus('Error: ' + e.message, 'error');
   }
