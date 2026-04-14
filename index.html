@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ಕಾವ್ಯ — Kannada Poetry Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=Noto+Sans+Kannada:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.08);
+    --accent: #c9a96e;
+    --accent2: #8b6fd4;
+    --text: #f0ece4;
+    --muted: #8a8698;
+    --danger: #e05c5c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    width: 100%;
+    padding: 2rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(139,111,212,0.06) 0%, transparent 100%);
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  header p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .container {
+    width: 100%;
+    max-width: 960px;
+    padding: 2rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    flex: 1;
+  }
+  @media (max-width: 700px) {
+    .container { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+  .panel-title {
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  label {
+    font-size: 0.82rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+  input[type="text"], textarea, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.92rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: vertical;
+  }
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--accent2);
+  }
+  select option { background: var(--surface2); }
+  .mood-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  .mood-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    padding: 0.5rem 0.3rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .mood-btn:hover, .mood-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(201,169,110,0.08);
+  }
+  .api-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+  }
+  .api-row > div { flex: 1; }
+  .api-row select { font-size: 0.82rem; }
+  .bytez-model-row { display: flex; gap: 0.5rem; }
+  .bytez-model-row input { flex: 1; font-size: 0.8rem; }
+  .generate-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent2), #6b4fc7);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.03em;
+  }
+  .generate-btn:hover { opacity: 0.9; }
+  .generate-btn:active { transform: scale(0.98); }
+  .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .output-panel {
+    grid-column: span 2;
+    display: none;
+  }
+  @media (max-width: 700px) { .output-panel { grid-column: span 1; } }
+  .output-panel.visible { display: flex; }
+  .preview-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 9/16;
+    max-height: 520px;
+    border-radius: 16px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  @media (min-width: 700px) {
+    .output-panel { flex-direction: row; gap: 1.5rem; }
+    .preview-wrap { width: 260px; }
+  }
+  #bgCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+  .poem-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem 1.5rem;
+    background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 100%);
+    text-align: center;
+  }
+  .poem-text {
+    font-family: 'Noto Sans Kannada', 'Playfair Display', serif;
+    font-size: 1.05rem;
+    line-height: 1.9;
+    color: #fff;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.7);
+    white-space: pre-line;
+  }
+  .poem-watermark {
+    position: absolute;
+    bottom: 1rem;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .output-controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .poem-raw {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    font-family: 'Noto Sans Kannada', serif;
+    font-size: 0.95rem;
+    line-height: 1.9;
+    color: var(--text);
+    white-space: pre-line;
+    flex: 1;
+    min-height: 180px;
+  }
+  .action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+  }
+  .action-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    padding: 0.65rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .status {
+    font-size: 0.82rem;
+    color: var(--muted);
+    min-height: 1.2em;
+    text-align: center;
+  }
+  .status.loading { color: var(--accent2); }
+  .status.error { color: var(--danger); }
+  .status.success { color: #7ec87e; }
+  .settings-toggle {
+    font-size: 0.78rem;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    background: none;
+    border: none;
+    font-family: inherit;
+  }
+  .settings-box {
+    display: none;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .settings-box.open { display: flex; }
+  .divider {
+    height: 1px;
+    background: var(--border);
+    width: 100%;
+  }
+  .bgm-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .bgm-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding: 0.3rem 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bgm-chip.active { border-color: var(--accent2); color: var(--accent2); background: rgba(139,111,212,0.1); }
+  audio { width: 100%; border-radius: 8px; margin-top: 0.3rem; display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ಕಾವ್ಯ</h1>
+  <p>Kannada Poetry · Reel Generator</p>
+</header>
+
+<div class="container">
+
+  <!-- Left panel: Input -->
+  <div class="panel">
+    <span class="panel-title">Emotion / Feeling</span>
+
+    <div>
+      <label>Type it in English or Kannada</label>
+      <textarea id="emotionInput" rows="3" placeholder="e.g. I miss you, she left, I am tired of waiting..."></textarea>
+    </div>
+
+    <div>
+      <label>Mood</label>
+      <div class="mood-grid" id="moodGrid">
+        <button class="mood-btn active" data-mood="romantic">💛 Romantic</button>
+        <button class="mood-btn" data-mood="sad">🌧 Sad</button>
+        <button class="mood-btn" data-mood="longing">🌙 Longing</button>
+        <button class="mood-btn" data-mood="hopeful">🌅 Hopeful</button>
+        <button class="mood-btn" data-mood="nostalgic">🍂 Nostalgic</button>
+        <button class="mood-btn" data-mood="angry">🔥 Intense</button>
+      </div>
+    </div>
+
+    <div>
+      <label>Style</label>
+      <select id="styleSelect">
+        <option value="classical">Classical Kannada poet style</option>
+        <option value="modern">Modern lyrical (Instagram-friendly)</option>
+        <option value="haiku">Short haiku-style (3 lines)</option>
+        <option value="shayari">Shayari-influenced</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <label>Page watermark (optional)</label>
+      <input type="text" id="watermarkInput" placeholder="@yourpage" />
+    </div>
+
+    <button class="settings-toggle" onclick="toggleSettings()">⚙ API Settings</button>
+    <div class="settings-box" id="settingsBox">
+      <div class="api-row">
+        <div>
+          <label>Provider</label>
+          <select id="providerSelect" onchange="toggleProviderFields()">
+            <option value="bytez">Bytez (Free tier)</option>
+            <option value="gemini">Gemini (Free)</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+        </div>
+      </div>
+      <div id="bytezFields">
+        <label>Bytez API Key</label>
+        <input type="text" id="bytezKey" placeholder="your-bytez-key" />
+        <label style="margin-top:0.6rem">Model ID (HuggingFace style)</label>
+        <input type="text" id="bytezModel" placeholder="meta-llama/Llama-3.1-8B-Instruct" value="Qwen/Qwen2.5-7B-Instruct" />
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">Find models at <a href="https://bytez.com/models" target="_blank" style="color:var(--accent2)">bytez.com/models</a></p>
+      </div>
+      <div id="geminiFields" style="display:none">
+        <label>Gemini API Key</label>
+        <input type="text" id="geminiKey" placeholder="AIza..." />
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">Using model: <strong style="color:var(--accent2)">gemini-2.5-flash</strong> (best for Kannada poetry)</p>
+      </div>
+      <div id="openrouterFields" style="display:none">
+        <label>OpenRouter API Key</label>
+        <input type="text" id="openrouterKey" placeholder="sk-or-..." />
+      </div>
+    </div>
+
+    <div id="statusMsg" class="status"></div>
+
+    <button class="generate-btn" id="genBtn" onclick="generate()">✦ Generate Poem</button>
+  </div>
+
+  <!-- Right panel: Background config -->
+  <div class="panel">
+    <span class="panel-title">Visual Style</span>
+
+    <div>
+      <label>Background style</label>
+      <select id="bgStyle">
+        <option value="nature">Nature / Forest</option>
+        <option value="night">Night sky / Stars</option>
+        <option value="rain">Rain / Monsoon</option>
+        <option value="golden">Golden hour / Sunset</option>
+        <option value="abstract">Abstract / Minimal dark</option>
+        <option value="flowers">Flowers / Petals</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Text color</label>
+      <select id="textColor">
+        <option value="#ffffff">White</option>
+        <option value="#f5e6c8">Warm ivory</option>
+        <option value="#d4b8f0">Lavender</option>
+        <option value="#a8e6cf">Mint</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Font size</label>
+      <select id="fontSize">
+        <option value="1.05rem">Medium</option>
+        <option value="0.9rem">Small</option>
+        <option value="1.2rem">Large</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <span class="panel-title">BGM Mood (for reference)</span>
+    <p style="font-size:0.78rem; color:var(--muted); line-height:1.6">Tag your local audio file to match the poem mood. Keep a folder of 5-6 tracks named by mood.</p>
+    <div class="bgm-list" id="bgmList">
+      <span class="bgm-chip active" data-bgm="romantic">Romantic</span>
+      <span class="bgm-chip" data-bgm="sad">Sad</span>
+      <span class="bgm-chip" data-bgm="longing">Longing</span>
+      <span class="bgm-chip" data-bgm="hopeful">Hopeful</span>
+      <span class="bgm-chip" data-bgm="nostalgic">Nostalgic</span>
+      <span class="bgm-chip" data-bgm="intense">Intense</span>
+    </div>
+    <p id="bgmSuggestion" style="font-size:0.82rem; color:var(--accent); margin-top:0.3rem"></p>
+
+    <div class="divider"></div>
+
+    <div>
+      <label>Upload your own BGM (optional preview)</label>
+      <input type="file" id="bgmFile" accept="audio/*" onchange="loadBGM()" style="font-size:0.8rem; color:var(--muted)" />
+      <audio id="bgmPlayer" controls></audio>
+    </div>
+  </div>
+
+  <!-- Output panel -->
+  <div class="panel output-panel" id="outputPanel">
+
+    <div class="preview-wrap">
+      <canvas id="bgCanvas" width="540" height="960"></canvas>
+      <div class="poem-overlay">
+        <div class="poem-text" id="poemOverlay"></div>
+        <div class="poem-watermark" id="watermarkDisplay"></div>
+      </div>
+    </div>
+
+    <div class="output-controls">
+      <span class="panel-title">Generated Poem</span>
+      <div class="poem-raw" id="poemRaw"></div>
+      <div class="action-row">
+        <button class="action-btn" onclick="copyPoem()">📋 Copy poem</button>
+        <button class="action-btn" onclick="downloadCanvas()">⬇ Save image</button>
+        <button class="action-btn" onclick="regenerateBg()">🎨 New background</button>
+        <button class="action-btn" onclick="generate()">🔄 Regenerate poem</button>
+      </div>
+      <p style="font-size:0.75rem; color:var(--muted); line-height:1.6; margin-top:0.5rem">
+        Next: Record your voice reading this poem → combine image + audio in CapCut or VN app → post as Reel.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentPoem = '';
+let selectedMood = 'romantic';
+let selectedBgm = 'romantic';
+let bgInterval = null;
+
+// Mood buttons
+document.querySelectorAll('.mood-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedMood = btn.dataset.mood;
+  });
+});
+
+// BGM chips
+document.querySelectorAll('.bgm-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.bgm-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    selectedBgm = chip.dataset.bgm;
+    updateBgmSuggestion();
+  });
+});
+
+function updateBgmSuggestion() {
+  const suggestions = {
+    romantic: 'Use a soft piano or violin track, slow tempo, warm tone',
+    sad: 'Rainy ambient, minor key piano, no lyrics',
+    longing: 'Slow acoustic guitar, haunting melody',
+    hopeful: 'Light morning ambient, gentle strings',
+    nostalgic: 'Old Kannada film instrumental or folk-inspired',
+    intense: 'Deeper bass, dramatic strings, darker palette'
+  };
+  document.getElementById('bgmSuggestion').textContent = suggestions[selectedBgm] || '';
+}
+updateBgmSuggestion();
+
+function toggleSettings() {
+  document.getElementById('settingsBox').classList.toggle('open');
+}
+
+function toggleProviderFields() {
+  const p = document.getElementById('providerSelect').value;
+  document.getElementById('bytezFields').style.display = p === 'bytez' ? 'block' : 'none';
+  document.getElementById('geminiFields').style.display = p === 'gemini' ? 'block' : 'none';
+  document.getElementById('openrouterFields').style.display = p === 'openrouter' ? 'block' : 'none';
+}
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+function loadBGM() {
+  const file = document.getElementById('bgmFile').files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const player = document.getElementById('bgmPlayer');
+  player.src = url;
+  player.style.display = 'block';
+}
+
+async function callBytez(prompt, key, modelId) {
+  const encodedModel = modelId.replace('/', '%2F');
+  const res = await fetch(`https://api.bytez.com/models/v2/${encodedModel}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': key },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: 'You are a gifted Kannada poet. Respond only with Kannada poetry in Kannada script, nothing else. No title, no translation, no explanation.' },
+        { role: 'user', content: prompt }
+      ],
+      params: { max_new_tokens: 300, temperature: 0.7, top_p: 0.9 }
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || 'Bytez error');
+  
+  // Try different response formats
+  const out = data.output || data;
+  
+  // Direct content field (chat-style response)
+  if (out?.content && typeof out.content === 'string') return out.content.trim();
+  
+  // String output
+  if (typeof out === 'string') return out.trim();
+  
+  // Array output
+  if (Array.isArray(out)) return out.map(o => o.generated_text || o.text || o.content || '').join('').trim();
+  
+  // Choices array (OpenAI-style)
+  if (out?.choices) return out.choices[0].message?.content || out.choices[0].text || '';
+  
+  // Direct message field
+  if (out?.message?.content) return out.message.content.trim();
+  
+  // Generated text field
+  if (out?.generated_text) return out.generated_text.trim();
+  
+  throw new Error('Unexpected Bytez response: ' + JSON.stringify(data).slice(0, 200));
+}
+
+async function callGemini(prompt, key) {
+  // Using Gemini 2.5 Flash - latest free tier model with best Kannada support
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.9,
+        maxOutputTokens: 800  // Increased from 500 to prevent cutoff
+      }
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'Gemini error');
+  
+  let poem = data.candidates[0].content.parts[0].text.trim();
+  
+  // Check if poem was cut off (doesn't end with proper punctuation)
+  const endsWithPunctuation = /[。，!?.;:\n]$/.test(poem);
+  if (!endsWithPunctuation && poem.length > 50) {
+    console.warn('Poem may be cut off, attempting to complete...');
+    // Try to get completion
+    try {
+      const completionRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          contents: [{ parts: [{ text: `Continue this Kannada poem from where it left off (add 1-2 more lines to complete it, maintain the same style and emotion):\n\n${poem}\n\nContinue:` }] }],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.9,
+            maxOutputTokens: 200
+          }
+        })
+      });
+      const completionData = await completionRes.json();
+      if (completionData.candidates?.[0]?.content?.parts?.[0]?.text) {
+        const completion = completionData.candidates[0].content.parts[0].text.trim();
+        poem = poem + completion;
+      }
+    } catch (e) {
+      console.warn('Failed to complete poem:', e);
+    }
+  }
+  
+  return poem;
+}
+
+async function callOpenRouter(prompt, key) {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({
+      model: 'mistralai/mistral-7b-instruct:free',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 400
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'OpenRouter error');
+  return data.choices[0].message.content.trim();
+}
+
+function buildPrompt(emotion, mood, style) {
+  const stylePrompts = {
+    classical: `You are a master Kannada poet writing in classical ಭಾವಗೀತೆ style.
+
+CRITICAL: Study these REAL Kannada poems and match their quality:
+
+EXAMPLE 1 (Perfect rhyme & rhythm):
+"ಮನದಲಿ ಆಸೆಗಳು ನೂರಾರು,
+ಆದರೆ ಅವುಗಳಿಗೆ ಆಸರೆ ಯಾರು?
+ಕಣ್ಣಿನಲಿ ಕನಸುಗಳು ಸಾವಿರಾರು,
+ಅವುಗಳಿಗೆ ಸ್ಪೂರ್ತಿ ತುಂಬಿ ಪ್ರೋತ್ಸಾಹಿಸುವ ಪ್ರೇಮಿ ಯಾರು?"
+
+Structure analysis:
+- Line 1 & 3: Parallel structure (ಮನದಲಿ/ಕಣ್ಣಿನಲಿ + noun + number)
+- Line 2 & 4: Rhyme (ಯಾರು/ಯಾರು)
+- Emotional arc: Desire → Question → Dreams → Question about love
+- Every word makes sense in Kannada
+
+EXAMPLE 2 (Question format with rhythm):
+"ಕರೆದಾಗ ಬರದಿರುವವಳು,
+ಕನಸಲ್ಲಿ ಕರೆಯದೇನೆ ಹೇಗೆ ಬಂದಳು?
+ಕೈಗೆ ಎಟುಕದವಳು,
+ಕನಸಿಗೆ ಹೇಗೆ ಎಟುಕಿದಳು?"
+
+Structure:
+- Each couplet contrasts reality vs dreams
+- Rhyme scheme: ವಳು/ಬಂದಳು, ವಳು/ಎಟುಕಿದಳು
+- Deep emotional meaning about missing someone
+- Clear, simple Kannada words
+
+RULES:
+- 4-6 lines with consistent meter (similar syllable count per line)
+- Use rhyme: alternating lines should rhyme or near-rhyme
+- Create emotional arc: setup → development → climax → resolution
+- Use real Kannada words from everyday language
+- Include one powerful metaphor (heart, dreams, eyes, love)
+- Read aloud mentally: does it sound musical?`,
+
+    modern: `You are writing modern Instagram-style Kannada ಭಾವಗೀತೆ poetry.
+
+CRITICAL: These are REAL viral Kannada poems - match this quality:
+
+EXAMPLE 1 (Viral Instagram style):
+"ಪ್ರೀತಿ ಎಲ್ಲರಿಗೂ ಸಿಗಲ್ಲ,
+ಸಿಗೋಕು ಅದೃಷ್ಟ ಇರ್ಬೇಕು,
+ಸಿಕ್ಕಿದ ಮೇಲೆ ಉಳಿಸಿಕೊಳ್ಳೋಕೆ
+ಯೋಗ್ಯತೆ ಇರಬೇಕು"
+
+Why this works:
+- Simple, relatable truth about love
+- Progressive logic: not everyone gets it → need luck → need worthiness to keep it
+- Natural conversational Kannada (not literary)
+- Ends with powerful statement
+- 4 lines with building intensity
+
+EXAMPLE 2 (Emotional question format):
+"ನಿನ್ನ ಮೇಲೆ ಪ್ರೀತಿ ಹೇಗಾಯ್ತು ಗೊತ್ತಿಲ್ಲ
+ಆದ್ರೆ ನೀನು ಅಂದ್ರೆ ನನಗೆ ತುಂಬಾ ಇಷ್ಟ"
+
+Structure:
+- Confessional tone (I don't know how but...)
+- Honest, vulnerable emotion
+- Colloquial Kannada (ಆದ್ರೆ, ಅಂದ್ರೆ)
+- Feels like talking to a friend
+
+EXAMPLE 3 (Short & impactful):
+"ಪ್ರೀತಿ ಎಂದರೆ ಮಾತಲ್ಲ,
+ಅದು ಗಮನಿಸುವ ಕಲೆ!"
+
+Why viral:
+- Redefines love in one line
+- Universal truth
+- Memorable and quotable
+- Perfect for Instagram
+
+RULES:
+- 3-5 short lines (5-10 words each)
+- Use conversational Kannada (ಆದ್ರೆ, ಇಲ್ಲ್, ಅಂದ್ರೆ)
+- Express ONE clear emotion/idea completely
+- End with memorable, quotable line
+- Make it relatable to young Kannada speakers
+- Must make someone say "yes, this is so true!"`,
+
+    haiku: `You are writing a Kannada ವಚನ-style poem (3 lines, philosophical).
+
+REAL EXAMPLES:
+
+Example 1:
+"ಮನದಾಳದ ಮಾತು
+ನಿನ್ನ ಎದುರಲ್ಲಿ ನಿಂತು
+ಹೇಳುವುದರಲ್ಲೇ ಮರೆತ್ಹೋಯಿತು"
+
+Structure:
+- Line 1: Inner feeling (words from heart's depths)
+- Line 2: Action/situation (standing before you)
+- Line 3: Revelation/twist (forgot them in telling)
+- Complete emotional story in 3 lines
+
+Example 2 (Nature metaphor):
+"ನೀನು ದುಂಬಿಯಾದರೆ ನಾ ಹೂ ಆಗುವೆ
+ಆದರೂ ನೀನೇಕೆ
+ಹೂವಿಂದಾ ಹೂವಿಗೆ ಹಾರಿ ಹೋಗುವೆ"
+
+Structure:
+- Line 1: Metaphor setup (if you're bee, I'm flower)
+- Line 2: Question begins (but why)
+- Line 3: Emotional question complete (you fly flower to flower)
+- Nature imagery + human emotion
+
+RULES:
+- Exactly 3 lines
+- Line 1: Set up image/metaphor
+- Line 2: Develop or contrast
+- Line 3: Reveal truth or ask powerful question
+- Use simple, everyday Kannada words
+- Must tell a complete mini-story
+- Should make reader pause and think`,
+
+    shayari: `You are writing Kannada poetry in Shayari style (emotional couplets).
+
+REAL KANNADA SHAYARI EXAMPLES:
+
+Example 1:
+"ಮನದ ವೀಣೆ ಮೀಟಿ ನೀನು ಸಂಗೀತವಾ ಆಲಿಸಿದೆ,
+ಎದೆಯ ಕದವ ತಟ್ಟಿ ಬಡಿತವನಾಲಿಸಿದೆ"
+
+Structure analysis:
+- Both lines about music/sound metaphors
+- Line 1: Heart's veena played → listened to music
+- Line 2: Chest's door knocked → listened to heartbeat
+- Parallel structure with different imagery
+- Rhyme: ಆಲಿಸಿದೆ/ಆಲಿಸಿದೆ (perfect rhyme)
+- Emotional meaning: I heard your music and your heartbeat
+
+Example 2 (Sad love):
+"ನನ್ನ ಪ್ರೇಮಗೀತೆಗೆ ಸ್ವರವಾಗಬೇಕಿದ್ದವಳು
+ಪ್ರೀತಿ ನಾಟಕವಾಡಿ ನನ್ನ ವಿರಹಗೀತೆಗೆ ಅಪಸ್ವರವಾದಳು"
+
+Structure:
+- Contrast: what should have been vs what became
+- Musical metaphor throughout (ಸ್ವರ, ಗೀತೆ, ಅಪಸ್ವರ)
+- Story of love turning to separation
+- Sophisticated wordplay
+
+RULES:
+- Write 2-3 couplets (4-6 lines total)
+- Each couplet = one complete thought
+- Lines within couplet should rhyme
+- Use consistent metaphor throughout (music, nature, journey)
+- Build emotion: hope → reality → pain OR love → depth → commitment
+- Use elegant Kannada words but keep meaning clear`,
+
+    sad: `You are writing sad Kannada poetry (ವಿರಹ ಭಾವಗೀತೆ).
+
+REAL SAD POEM EXAMPLES:
+
+Example 1:
+"ಕಣ್ಣಿಗೂ ಕಣ್ಣೀರಿಗೂ ಕದನವು ಶುರುವಾಗಿದೆ
+ಮನಸಿಗೂ ಕನಸಿಗೂ ವಿರಹವು ಕಾಡಿದೆ"
+
+Structure:
+- Internal conflict (eyes vs tears, mind vs dreams)
+- Parallel structure in both lines
+- Rhyme: ಆಗಿದೆ/ಕಾಡಿದೆ
+- Universal sadness anyone can relate to
+
+Example 2:
+"ಕನಸು ಕರಗಿ ಕಂಬನಿಯಾಗಿದೆ
+ಅವಳ ನೆನಪು ನಂಜಾಗಿದೆ"
+
+Structure:
+- Dreams melting into tears (powerful image)
+- Memory becoming poison (emotional pain)
+- 2 lines, complete emotion
+- Simple words, deep meaning
+
+RULES:
+- 4-6 lines expressing ONE aspect of sadness (loss, missing, heartbreak)
+- Use contrast (what was vs what is, dreams vs reality)
+- Include physical manifestations (tears, heart pain, sleepless nights)
+- Rhyme scheme: AABB or ABCB
+- End with emotional punch, not explanation
+- Make reader FEEL the pain, not just read about it`
+  };
+
+  // Get the style-specific prompt
+  const basePrompt = stylePrompts[style] || stylePrompts.modern;
+
+  return `${basePrompt}
+
+═══════════════════════════════════════════
+NOW WRITE YOUR ORIGINAL POEM:
+═══════════════════════════════════════════
+
+Emotion to express: "${emotion}"
+Mood: ${mood}
+
+QUALITY CHECKLIST (MUST PASS ALL):
+✓ Every single word is real Kannada (no made-up words)
+✓ Lines connect logically (not random thoughts)
+✓ Has clear rhyme or rhythm when read aloud
+✓ Expresses ONE emotion completely
+✓ Uses at least one metaphor or poetic device
+✓ Makes emotional sense to native Kannada speaker
+✓ Someone would want to share this on Instagram
+
+OUTPUT: ONLY the poem in Kannada script, nothing else.`;
+}
+
+async function generate() {
+  const emotion = document.getElementById('emotionInput').value.trim();
+  if (!emotion) { setStatus('Enter an emotion first', 'error'); return; }
+
+  const provider = document.getElementById('providerSelect').value;
+  let key = '';
+  if (provider === 'bytez') key = document.getElementById('bytezKey').value.trim();
+  else if (provider === 'gemini') key = document.getElementById('geminiKey').value.trim();
+  else key = document.getElementById('openrouterKey').value.trim();
+
+  if (!key) { setStatus('Add your API key in settings ↑', 'error'); toggleSettings(); return; }
+
+  const style = document.getElementById('styleSelect').value;
+  const prompt = buildPrompt(emotion, selectedMood, style);
+
+  document.getElementById('genBtn').disabled = true;
+  setStatus('Generating poem...', 'loading');
+
+  try {
+    let poem = '';
+    if (provider === 'bytez') poem = await callBytez(prompt, key, document.getElementById('bytezModel').value.trim());
+    else if (provider === 'gemini') poem = await callGemini(prompt, key);
+    else poem = await callOpenRouter(prompt, key);
+
+    currentPoem = poem;
+    document.getElementById('poemRaw').textContent = poem;
+    document.getElementById('poemOverlay').textContent = poem;
+    document.getElementById('poemOverlay').style.color = document.getElementById('textColor').value;
+    document.getElementById('poemOverlay').style.fontSize = document.getElementById('fontSize').value;
+
+    const wm = document.getElementById('watermarkInput').value.trim();
+    document.getElementById('watermarkDisplay').textContent = wm;
+
+    document.getElementById('outputPanel').classList.add('visible');
+    drawBackground();
+    setStatus('Poem generated ✓', 'success');
+  } catch (e) {
+    setStatus('Error: ' + e.message, 'error');
+  }
+
+  document.getElementById('genBtn').disabled = false;
+}
+
+function drawBackground() {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const style = document.getElementById('bgStyle').value;
+  const t = Date.now() / 1000;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const palettes = {
+    nature: ['#0d1a0f', '#1a2e1c', '#0a1208', '#1f3521', '#243d26'],
+    night: ['#050814', '#0a0f2e', '#060c22', '#0d1545', '#040810'],
+    rain: ['#0a0e14', '#111928', '#0d1520', '#14202e', '#080d14'],
+    golden: ['#1a0d00', '#2e1a00', '#3d2200', '#261500', '#1f1000'],
+    abstract: ['#080808', '#0f0f14', '#0a0a10', '#12121a', '#060608'],
+    flowers: ['#14060e', '#200a18', '#180812', '#2a0d1f', '#100508']
+  };
+
+  const colors = palettes[style] || palettes.abstract;
+
+  // Base gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, colors[0]);
+  grad.addColorStop(0.4, colors[1]);
+  grad.addColorStop(0.7, colors[2]);
+  grad.addColorStop(1, colors[4]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Style-specific elements
+  if (style === 'night' || style === 'abstract') {
+    // Stars
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    for (let i = 0; i < 120; i++) {
+      const x = (Math.sin(i * 2.3 + 1) * 0.5 + 0.5) * W;
+      const y = (Math.sin(i * 1.7 + 2) * 0.5 + 0.5) * H * 0.6;
+      const r = Math.random() * 1.5 + 0.3;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  if (style === 'nature') {
+    // Tree silhouettes
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    for (let i = 0; i < 6; i++) {
+      const x = (i / 5) * W;
+      drawTree(ctx, x, H, 80 + Math.sin(i * 1.3) * 40);
+    }
+  }
+
+  if (style === 'golden') {
+    // Sun glow
+    const sunGrad = ctx.createRadialGradient(W * 0.5, H * 0.35, 0, W * 0.5, H * 0.35, W * 0.5);
+    sunGrad.addColorStop(0, 'rgba(255,200,50,0.25)');
+    sunGrad.addColorStop(0.4, 'rgba(255,120,20,0.12)');
+    sunGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(0, 0, W, H);
+    // Horizon lines
+    for (let i = 0; i < 8; i++) {
+      ctx.strokeStyle = `rgba(255,180,60,${0.04 - i * 0.004})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, H * 0.35 + i * 30);
+      ctx.lineTo(W, H * 0.35 + i * 30);
+      ctx.stroke();
+    }
+  }
+
+  if (style === 'rain') {
+    // Rain streaks
+    ctx.strokeStyle = 'rgba(150,180,220,0.12)';
+    ctx.lineWidth = 0.8;
+    for (let i = 0; i < 80; i++) {
+      const x = (Math.sin(i * 1.7) * 0.5 + 0.5) * W;
+      const y = (Math.sin(i * 2.1) * 0.5 + 0.5) * H;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 4, y + 20);
+      ctx.stroke();
+    }
+  }
+
+  if (style === 'flowers') {
+    // Petal shapes
+    for (let i = 0; i < 15; i++) {
+      const x = (Math.sin(i * 1.9 + 0.5) * 0.5 + 0.5) * W;
+      const y = (Math.sin(i * 2.7 + 1) * 0.5 + 0.5) * H;
+      const r = 8 + Math.sin(i) * 5;
+      ctx.fillStyle = `rgba(200,80,120,${0.06 + Math.sin(i) * 0.03})`;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 1.6, Math.sin(i) * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Vignette
+  const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.8);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawTree(ctx, x, baseY, h) {
+  ctx.beginPath();
+  ctx.moveTo(x, baseY);
+  ctx.lineTo(x - 15, baseY - h * 0.4);
+  ctx.lineTo(x - 8, baseY - h * 0.4);
+  ctx.lineTo(x - 20, baseY - h * 0.7);
+  ctx.lineTo(x - 10, baseY - h * 0.7);
+  ctx.lineTo(x, baseY - h);
+  ctx.lineTo(x + 10, baseY - h * 0.7);
+  ctx.lineTo(x + 20, baseY - h * 0.7);
+  ctx.lineTo(x + 8, baseY - h * 0.4);
+  ctx.lineTo(x + 15, baseY - h * 0.4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function regenerateBg() {
+  drawBackground();
+}
+
+function copyPoem() {
+  if (!currentPoem) return;
+  navigator.clipboard.writeText(currentPoem).then(() => setStatus('Copied!', 'success'));
+}
+
+function downloadCanvas() {
+  const canvas = document.getElementById('bgCanvas');
+  // Composite canvas + overlay text into a new canvas
+  const out = document.createElement('canvas');
+  out.width = 1080; out.height = 1920;
+  const ctx2 = out.getContext('2d');
+
+  // Scale up bg
+  ctx2.drawImage(canvas, 0, 0, 1080, 1920);
+
+  // Draw overlay gradient
+  const grad = ctx2.createLinearGradient(0, 0, 0, 1920);
+  grad.addColorStop(0, 'rgba(0,0,0,0.15)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx2.fillStyle = grad;
+  ctx2.fillRect(0, 0, 1080, 1920);
+
+  // Draw poem
+  const color = document.getElementById('textColor').value;
+  ctx2.fillStyle = color;
+  ctx2.font = '52px "Noto Sans Kannada", serif';
+  ctx2.textAlign = 'center';
+  ctx2.shadowColor = 'rgba(0,0,0,0.7)';
+  ctx2.shadowBlur = 20;
+
+  const lines = currentPoem.split('\n').filter(l => l.trim());
+  const lineH = 80;
+  const startY = 1920 / 2 - (lines.length * lineH) / 2;
+  lines.forEach((line, i) => {
+    ctx2.fillText(line, 540, startY + i * lineH);
+  });
+
+  // Watermark
+  const wm = document.getElementById('watermarkInput').value.trim();
+  if (wm) {
+    ctx2.font = '36px "DM Sans", sans-serif';
+    ctx2.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx2.shadowBlur = 0;
+    ctx2.fillText(wm, 540, 1860);
+  }
+
+  const link = document.createElement('a');
+  link.download = 'kannada-poem-reel.png';
+  link.href = out.toDataURL('image/png');
+  link.click();
+}
+
+// Update text color live
+document.getElementById('textColor').addEventListener('change', () => {
+  document.getElementById('poemOverlay').style.color = document.getElementById('textColor').value;
+});
+document.getElementById('fontSize').addEventListener('change', () => {
+  document.getElementById('poemOverlay').style.fontSize = document.getElementById('fontSize').value;
+});
+document.getElementById('bgStyle').addEventListener('change', drawBackground);
+
+// ===== AUTO-SAVE & LOAD SETTINGS =====
+// Load saved settings when page opens
+window.addEventListener('DOMContentLoaded', () => {
+  const savedSettings = {
+    'bytezKey': 'bytezKey',
+    'bytezModel': 'bytezModel',
+    'geminiKey': 'geminiKey',
+    'openrouterKey': 'openrouterKey',
+    'providerSelect': 'providerSelect',
+    'styleSelect': 'styleSelect',
+    'emotionInput': 'emotionInput',
+    'watermarkInput': 'watermarkInput'
+  };
+  
+  for (const [elementId, storageKey] of Object.entries(savedSettings)) {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const el = document.getElementById(elementId);
+      if (el) el.value = saved;
+    }
+  }
+  
+  // Restore provider visibility
+  const savedProvider = localStorage.getItem('providerSelect');
+  if (savedProvider) updateProviderFields(savedProvider);
+  
+  // Redraw background if style was saved
+  drawBackground();
+});
+
+// Auto-save settings when they change
+function autoSaveSettings() {
+  const fieldsToSave = [
+    'bytezKey', 'bytezModel', 'geminiKey', 'openrouterKey',
+    'providerSelect', 'styleSelect', 'emotionInput', 'watermarkInput'
+  ];
+  
+  fieldsToSave.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) localStorage.setItem(id, el.value);
+  });
+}
+
+// Add auto-save to all input fields
+document.addEventListener('input', (e) => {
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+    autoSaveSettings();
+  }
+});
+
+// Also save on change events
+document.addEventListener('change', autoSaveSettings);
+</script>
+</body>
+</html>
