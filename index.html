@@ -1072,7 +1072,6 @@ window.addEventListener('DOMContentLoaded', () => {
     'bytezModel': 'bytezModel',
     'geminiKey': 'geminiKey',
     'openrouterKey': 'openrouterKey',
-    'providerSelect': 'providerSelect',
     'styleSelect': 'styleSelect',
     'emotionInput': 'emotionInput',
     'watermarkInput': 'watermarkInput'
@@ -1086,9 +1085,31 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Restore provider visibility
+  // Smart provider selection: default to whichever has a saved API key
+  const bytezKey = localStorage.getItem('bytezKey');
+  const geminiKey = localStorage.getItem('geminiKey');
+  const openrouterKey = localStorage.getItem('openrouterKey');
   const savedProvider = localStorage.getItem('providerSelect');
-  if (savedProvider) updateProviderFields(savedProvider);
+  
+  let selectedProvider = 'bytez'; // fallback default
+  
+  // If user previously selected a provider and it has a key, use it
+  if (savedProvider) {
+    if (savedProvider === 'bytez' && bytezKey) selectedProvider = 'bytez';
+    else if (savedProvider === 'gemini' && geminiKey) selectedProvider = 'gemini';
+    else if (savedProvider === 'openrouter' && openrouterKey) selectedProvider = 'openrouter';
+  }
+  
+  // Otherwise, use the first available key
+  if (!savedProvider || !localStorage.getItem(selectedProvider === 'bytez' ? 'bytezKey' : selectedProvider === 'gemini' ? 'geminiKey' : 'openrouterKey')) {
+    if (geminiKey) selectedProvider = 'gemini';
+    else if (bytezKey) selectedProvider = 'bytez';
+    else if (openrouterKey) selectedProvider = 'openrouter';
+  }
+  
+  // Apply the selected provider
+  document.getElementById('providerSelect').value = selectedProvider;
+  toggleProviderFields();
   
   // Redraw background if style was saved
   drawBackground();
